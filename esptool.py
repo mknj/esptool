@@ -27,6 +27,20 @@ import os
 import subprocess
 import tempfile
 
+def gpio(pin,val):
+#  if pin==2:
+#   pin=23
+#  else:
+#    pin=24
+  try:
+    gfile=open("/sys/class/gpio/gpio%s/value"%pin,"w")
+    gfile.write(val)
+    gfile.close()
+  except Exception as e:
+    print("write error",pin,val,e)
+
+
+
 class ESPROM:
 
     # These are the currently known commands supported by the ROM
@@ -138,14 +152,17 @@ class ESPROM:
             # issue reset-to-bootloader:
             # RTS = either CH_PD or nRESET (both active low = chip in reset)
             # DTR = GPIO0 (active low = boot to flasher)
-            self._port.setDTR(False)
-            self._port.setRTS(True)
-            time.sleep(0.05)
-            self._port.setDTR(True)
-            self._port.setRTS(False)
-            time.sleep(0.05)
-            self._port.setDTR(False)
-
+	    gpio(2,"0") # GPIO0 , 0 -> boot to flasher
+	    gpio(3,"0") # CH_PD , 0 -> power off
+            #self._port.setDTR(False)
+            #self._port.setRTS(True)
+            time.sleep(0.35)
+	    gpio(3,"1") # CH_PD , 1 -> power up
+            #self._port.setDTR(True)
+            #self._port.setRTS(False)
+            time.sleep(1.15)
+	    gpio(2,"1") # GPIO0 , 1 -> next boot will be normal boot
+            #self._port.setDTR(False)
             self._port.timeout = 0.3 # worst-case latency timer should be 255ms (probably <20ms)
             for _ in xrange(4):
                 try:
@@ -428,7 +445,7 @@ if __name__ == '__main__':
     parser.add_argument(
             '--port', '-p',
             help = 'Serial port device',
-            default = '/dev/ttyUSB0')
+            default = '/dev/ttyAMA0')
 
     parser.add_argument(
             '--baud', '-b',
@@ -673,3 +690,7 @@ if __name__ == '__main__':
 
     elif args.operation == 'erase_flash':
         esp.flash_erase()
+    print("REBOOT.")
+    gpio(3,"0") # CH_PD , 0 -> power off
+    time.sleep(0.35)
+    gpio(3,"1") # CH_PD , 1 -> power up
